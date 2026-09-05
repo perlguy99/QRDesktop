@@ -1,0 +1,26 @@
+name: QRDesktop
+options:
+  bundleIdPrefix: net.perlguy
+  deploymentTarget:
+    macOS: "14.0"
+targets:
+  QRDesktop:
+    type: application
+    platform: macOS
+    sources:
+      - path: QRDesktop
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.perlguy.QRDesktop
+        PRODUCT_NAME: QR Desktop
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        DEVELOPMENT_ASSET_PATHS: ""
+        ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: QRDesktop/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleDisplayName: QR Desktop
+        NSHumanReadableCopyright: ""
