@@ -7,14 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2EC4D23150167ADE2517CC18 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9DB985B69C63B455A06CD07 /* LaunchAtLogin.swift */; };
 		47A446B2F4605C63C771E13C /* QRDesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFD59833ABDCCBD549F02C0 /* QRDesktopApp.swift */; };
 		5ABC13032A184E091A9DF994 /* ReferenceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC66595E2992DDDF6F88C793 /* ReferenceListView.swift */; };
+		65E282B49F044D1468C0E463 /* ReferenceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 288BE6AE7CC5DB74E683F4EE /* ReferenceBoard.swift */; };
 		89DF3F334D46929AD8CE0A63 /* ReferenceLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548062D6A93484780DDA8EA0 /* ReferenceLibrary.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		288BE6AE7CC5DB74E683F4EE /* ReferenceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceBoard.swift; sourceTree = "<group>"; };
 		548062D6A93484780DDA8EA0 /* ReferenceLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceLibrary.swift; sourceTree = "<group>"; };
 		9F2467B906C9B87E66EB5050 /* QRDesktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QRDesktop.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A9DB985B69C63B455A06CD07 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		AC66595E2992DDDF6F88C793 /* ReferenceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceListView.swift; sourceTree = "<group>"; };
 		DFFD59833ABDCCBD549F02C0 /* QRDesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRDesktopApp.swift; sourceTree = "<group>"; };
 		EBEF48EEEBB02EC5E0F75088 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -25,7 +29,9 @@
 			isa = PBXGroup;
 			children = (
 				EBEF48EEEBB02EC5E0F75088 /* Info.plist */,
+				A9DB985B69C63B455A06CD07 /* LaunchAtLogin.swift */,
 				DFFD59833ABDCCBD549F02C0 /* QRDesktopApp.swift */,
+				288BE6AE7CC5DB74E683F4EE /* ReferenceBoard.swift */,
 				548062D6A93484780DDA8EA0 /* ReferenceLibrary.swift */,
 				AC66595E2992DDDF6F88C793 /* ReferenceListView.swift */,
 			);
@@ -106,7 +112,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2EC4D23150167ADE2517CC18 /* LaunchAtLogin.swift in Sources */,
 				47A446B2F4605C63C771E13C /* QRDesktopApp.swift in Sources */,
+				65E282B49F044D1468C0E463 /* ReferenceBoard.swift in Sources */,
 				89DF3F334D46929AD8CE0A63 /* ReferenceLibrary.swift in Sources */,
 				5ABC13032A184E091A9DF994 /* ReferenceListView.swift in Sources */,
 			);

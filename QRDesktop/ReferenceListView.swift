@@ -4,13 +4,59 @@
 //
 
 import AppKit
+import Quartz
 import SwiftUI
 import UniformTypeIdentifiers
+
+/// NSColorPanel reports color changes to a target/action pair, not a closure -
+/// this just adapts that to the closure the view wants, and needs to be
+/// retained (via @State) for as long as the panel might call back into it.
+private class ColorPanelHandler: NSObject {
+    let onChange: (NSColor) -> Void
+
+    init(onChange: @escaping (NSColor) -> Void) {
+        self.onChange = onChange
+    }
+
+    @objc func colorChanged(_ sender: NSColorPanel) {
+        onChange(sender.color)
+    }
+}
+
+/// QLPreviewPanel needs a data source object to hand it the item to preview -
+/// same retained-handler pattern as ColorPanelHandler above.
+private class QuickLookHandler: NSObject, QLPreviewPanelDataSource {
+    let url: URL
+
+    init(url: URL) {
+        self.url = url
+    }
+
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { 1 }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+        url as NSURL
+    }
+}
 
 struct ReferenceListView: View {
     var library: ReferenceLibrary
     @State private var statusMessage: String?
     @State private var selectedDisplayID: UInt32?
+    @State private var expandedBoardID: UUID?
+    @State private var colorPanelHandler: ColorPanelHandler?
+    @State private var quickLookHandler: QuickLookHandler?
+    @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLoginEnabled },
+            set: { newValue in
+                LaunchAtLogin.setEnabled(newValue)
+                launchAtLoginEnabled = LaunchAtLogin.isEnabled
+            }
+        )
+    }
 
     private var screens: [NSScreen] { NSScreen.screens }
 
@@ -34,28 +80,8 @@ struct ReferenceListView: View {
                 .padding(.horizontal)
             }
 
-            if library.images.isEmpty {
-                Text("No reference images yet.")
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
-            } else {
-                List(library.images) { image in
-                    HStack {
-                        Text(image.displayName)
-                            .fontWeight(isCurrent(image) ? .bold : .regular)
-                        Spacer()
-                        Button("Remove", role: .destructive) {
-                            library.remove(image)
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        select(image)
-                    }
-                }
-                .frame(minHeight: 160, maxHeight: 260)
-            }
+            sheetsSection
+            imagesSection
 
             if let statusMessage {
                 Text(statusMessage)
@@ -65,14 +91,21 @@ struct ReferenceListView: View {
             }
 
             HStack {
-                Button("Previous") { advance(by: -1) }
-                Button("Next") { advance(by: 1) }
-                Spacer()
-                Button("Add Images…") { chooseFiles() }
+                Button("Previous") { advanceBoard(by: -1) }
+                Button("Next") { advanceBoard(by: 1) }
             }
-            .padding([.horizontal, .bottom])
+            .padding(.horizontal)
+
+            Toggle("Launch at Login", isOn: launchAtLoginBinding)
+                .padding([.horizontal, .bottom])
         }
-        .frame(width: 320)
+        .frame(width: 340)
+        // MenuBarExtra's .window style defaults to a translucent/vibrant
+        // background that samples whatever's behind it - with a busy desktop
+        // picture that can wash out our own UI to the point of being
+        // unreadable. Force a fully opaque background so nothing behind the
+        // popover can ever show through.
+        .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             if selectedDisplayID == nil {
                 selectedDisplayID = NSScreen.main?.displayID ?? screens.first?.displayID
@@ -80,23 +113,241 @@ struct ReferenceListView: View {
         }
     }
 
-    private func isCurrent(_ image: ReferenceImage) -> Bool {
-        guard let targetScreen else { return false }
-        return library.currentImage(for: targetScreen)?.id == image.id
-    }
+    // MARK: - Sheets (boards)
 
-    private func select(_ image: ReferenceImage) {
-        guard let targetScreen else { return }
-        if library.select(image, for: targetScreen) {
-            statusMessage = "Set \"\(image.displayName)\" on \(targetScreen.localizedName)."
-        } else {
-            statusMessage = "Couldn't use \"\(image.displayName)\" as a desktop background."
+    private var sheetsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Sheets").font(.subheadline).bold()
+                Spacer()
+                Button("+1") { addBoard(layoutCount: 1) }
+                Button("+2") { addBoard(layoutCount: 2) }
+                Button("+3") { addBoard(layoutCount: 3) }
+            }
+            .padding(.horizontal)
+
+            if library.boards.isEmpty {
+                Text("No sheets yet. Add one above.")
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            } else {
+                List(library.boards) { board in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(board.summary)
+                                .fontWeight(isCurrent(board) ? .bold : .regular)
+                                .lineLimit(1)
+                            Spacer()
+                            Button("Apply") { applyBoard(board) }
+                                .buttonStyle(.borderless)
+                            Button("Edit") {
+                                expandedBoardID = expandedBoardID == board.id ? nil : board.id
+                            }
+                            .buttonStyle(.borderless)
+                            Button("Delete", role: .destructive) {
+                                library.deleteBoard(board)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+
+                        if expandedBoardID == board.id {
+                            ForEach(0..<board.layoutCount, id: \.self) { slot in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Slot \(slot + 1)").font(.caption).bold()
+
+                                    HStack {
+                                        Picker("Image", selection: slotPathBinding(board: board, slot: slot)) {
+                                            Text("None").tag("")
+                                            ForEach(library.images) { image in
+                                                Label {
+                                                    Text(image.displayName)
+                                                } icon: {
+                                                    if let thumb = library.thumbnail(for: image) {
+                                                        Image(nsImage: thumb)
+                                                            .resizable()
+                                                            .scaledToFit()
+                                                            .frame(width: 16, height: 16)
+                                                    }
+                                                }
+                                                .tag(image.sourceURL.path)
+                                            }
+                                        }
+                                        .font(.caption)
+
+                                        if let selectedImage = library.images.first(where: { $0.sourceURL.path == board.slots[slot].path }),
+                                           let thumb = library.thumbnail(for: selectedImage) {
+                                            Image(nsImage: thumb)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 24, height: 24)
+                                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                                        }
+                                    }
+
+                                    Picker("Scale", selection: slotScaleModeBinding(board: board, slot: slot)) {
+                                        Text("Fit").tag(BoardScaleMode.fit)
+                                        Text("Fill").tag(BoardScaleMode.fill)
+                                    }
+                                    .pickerStyle(.segmented)
+
+                                    HStack {
+                                        Text("Background").font(.caption)
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(Color(nsColor: NSColor(hex: board.slots[slot].backgroundColorHex) ?? .black))
+                                            .frame(width: 20, height: 14)
+                                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(.secondary, lineWidth: 0.5))
+                                        Button("Choose…") { chooseBackgroundColor(board: board, slot: slot) }
+                                            .buttonStyle(.borderless)
+                                            .font(.caption)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+
+                                if slot < board.layoutCount - 1 {
+                                    Divider()
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(minHeight: 120, maxHeight: 200)
+            }
         }
     }
 
-    private func advance(by delta: Int) {
+    private func slotPathBinding(board: ReferenceBoard, slot: Int) -> Binding<String> {
+        Binding(
+            get: { board.slots[slot].path ?? "" },
+            set: { newValue in
+                library.setSlotPath(boardID: board.id, slotIndex: slot, path: newValue.isEmpty ? nil : newValue)
+                reapply(boardID: board.id)
+            }
+        )
+    }
+
+    private func slotScaleModeBinding(board: ReferenceBoard, slot: Int) -> Binding<BoardScaleMode> {
+        Binding(
+            get: { board.slots[slot].scaleMode },
+            set: { newValue in
+                library.setSlotScaleMode(boardID: board.id, slotIndex: slot, scaleMode: newValue)
+                reapply(boardID: board.id)
+            }
+        )
+    }
+
+    /// SwiftUI's ColorPicker drives NSColorPanel internally, which - like
+    /// .fileImporter - doesn't reliably surface from a MenuBarExtra popover.
+    /// Driving NSColorPanel directly (same fix as chooseFiles) works instead.
+    private func chooseBackgroundColor(board: ReferenceBoard, slot: Int) {
+        NSApp.activate(ignoringOtherApps: true)
+        let panel = NSColorPanel.shared
+        panel.color = NSColor(hex: board.slots[slot].backgroundColorHex) ?? .black
+        panel.showsAlpha = false
+
+        let handler = ColorPanelHandler { [self] newColor in
+            library.setSlotBackgroundColor(boardID: board.id, slotIndex: slot, hex: newColor.hexString)
+            reapply(boardID: board.id)
+        }
+        colorPanelHandler = handler
+        panel.setTarget(handler)
+        panel.setAction(#selector(ColorPanelHandler.colorChanged(_:)))
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    private func reapply(boardID: UUID) {
+        if let updated = library.boards.first(where: { $0.id == boardID }) {
+            applyBoard(updated)
+        }
+    }
+
+    private func isCurrent(_ board: ReferenceBoard) -> Bool {
+        guard let targetScreen else { return false }
+        return library.currentBoard(for: targetScreen)?.id == board.id
+    }
+
+    private func addBoard(layoutCount: Int) {
+        let board = library.createBoard(layoutCount: layoutCount)
+        expandedBoardID = board.id
+    }
+
+    private func applyBoard(_ board: ReferenceBoard) {
         guard let targetScreen else { return }
-        library.advance(by: delta, for: targetScreen)
+        if library.selectBoard(board, for: targetScreen) {
+            statusMessage = "Set \"\(board.summary)\" on \(targetScreen.localizedName)."
+        } else {
+            statusMessage = "Couldn't apply that sheet - assign at least one image to a slot."
+        }
+    }
+
+    private func advanceBoard(by delta: Int) {
+        guard let targetScreen else { return }
+        library.advanceBoard(by: delta, for: targetScreen)
+    }
+
+    // MARK: - Image pool
+
+    private var imagesSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Images").font(.subheadline).bold()
+                Spacer()
+                Button("Add Images…") { chooseFiles() }
+            }
+            .padding(.horizontal)
+
+            if library.images.isEmpty {
+                Text("No images yet.")
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            } else {
+                List(library.images) { image in
+                    HStack {
+                        Button {
+                            quickLook(image)
+                        } label: {
+                            if let thumb = library.thumbnail(for: image) {
+                                Image(nsImage: thumb)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 28, height: 28)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Click to preview")
+
+                        TextField("Name", text: nameBinding(for: image))
+                            .textFieldStyle(.plain)
+
+                        Spacer()
+                        Button("Remove", role: .destructive) {
+                            library.remove(image)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .frame(minHeight: 120, maxHeight: 200)
+            }
+        }
+    }
+
+    private func nameBinding(for image: ReferenceImage) -> Binding<String> {
+        Binding(
+            get: { image.displayName },
+            set: { newValue in library.setCustomName(for: image, name: newValue) }
+        )
+    }
+
+    /// QLPreviewPanel is a shared system panel, same "drive it directly" fix
+    /// as the color and open panels above.
+    private func quickLook(_ image: ReferenceImage) {
+        NSApp.activate(ignoringOtherApps: true)
+        guard let panel = QLPreviewPanel.shared() else { return }
+        let handler = QuickLookHandler(url: image.sourceURL)
+        quickLookHandler = handler
+        panel.dataSource = handler
+        panel.makeKeyAndOrderFront(nil)
+        panel.reloadData()
     }
 
     private func chooseFiles() {
@@ -111,9 +362,6 @@ struct ReferenceListView: View {
             guard response == .OK, panel.urls.isEmpty == false else { return }
             library.addImages(at: panel.urls)
             statusMessage = "Added \(panel.urls.count) file\(panel.urls.count == 1 ? "" : "s")."
-            if let firstNew = library.images.last {
-                select(firstNew)
-            }
         }
     }
 }
