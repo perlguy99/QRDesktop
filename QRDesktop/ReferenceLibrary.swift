@@ -222,6 +222,12 @@ class ReferenceLibrary {
         invalidateRenderCache(for: boardID)
     }
 
+    func setBoardName(boardID: UUID, name: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        boards[index].name = name.isEmpty ? nil : name
+        persistBoards()
+    }
+
     func setSlotBackgroundColor(boardID: UUID, slotIndex: Int, hex: String) {
         guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
         guard boards[index].slots.indices.contains(slotIndex) else { return }
@@ -251,6 +257,14 @@ class ReferenceLibrary {
     func previewImageURL(for screen: NSScreen) -> URL? {
         guard let board = currentBoard(for: screen) else { return nil }
         return renderedImageURL(for: board, screen: screen)
+    }
+
+    /// Renders (or reuses the cached render of) an arbitrary sheet for a
+    /// screen, regardless of whether that sheet is actually applied there -
+    /// lets the Rolodex list preview a sheet without changing what's on the
+    /// desktop.
+    func previewImageURL(for board: ReferenceBoard, screen: NSScreen) -> URL? {
+        renderedImageURL(for: board, screen: screen)
     }
 
     /// Re-applies whatever board is already recorded as current for each

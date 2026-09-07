@@ -30,6 +30,14 @@ final class PeekOverlayController {
             return
         }
         print("[Peek] showing \(url.lastPathComponent) on \(screen.localizedName)")
+        show(image: image, on: screen)
+    }
+
+    /// Floats a specific image on a specific screen, independent of whatever
+    /// board is actually applied there - used to preview a sheet from the
+    /// Rolodex list without changing the screen's current desktop picture.
+    func show(image: NSImage, on screen: NSScreen) {
+        hide()
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: screen.frame.size),

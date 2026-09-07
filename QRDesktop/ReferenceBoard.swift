@@ -24,11 +24,13 @@ struct ReferenceBoard: Identifiable, Equatable {
     let id: UUID
     var layoutCount: Int
     var slots: [BoardSlot]
+    var name: String?
 
     init(layoutCount: Int) {
         self.id = UUID()
         self.layoutCount = layoutCount
         self.slots = Array(repeating: BoardSlot(path: nil, scaleMode: .fit, backgroundColorHex: "#000000"), count: layoutCount)
+        self.name = nil
     }
 
     var summary: String {
@@ -38,6 +40,13 @@ struct ReferenceBoard: Identifiable, Equatable {
         }
         return "\(layoutCount)-up: " + names.joined(separator: " + ")
     }
+
+    /// The name shown in the Rolodex list - a user-given name if there is one,
+    /// otherwise the auto-generated slot summary, same fallback pattern as
+    /// ReferenceImage.displayName.
+    var displayName: String {
+        name?.isEmpty == false ? name! : summary
+    }
 }
 
 // Custom Codable so boards saved before this shape existed still decode instead
@@ -46,7 +55,7 @@ struct ReferenceBoard: Identifiable, Equatable {
 // migrated into per-slot data.
 extension ReferenceBoard: Codable {
     enum CodingKeys: String, CodingKey {
-        case id, layoutCount, slots
+        case id, layoutCount, slots, name
         case legacySlotPaths = "slotPaths"
         case legacyScaleMode = "scaleMode"
         case legacyBackgroundColorHex = "backgroundColorHex"
@@ -56,6 +65,7 @@ extension ReferenceBoard: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         layoutCount = try container.decode(Int.self, forKey: .layoutCount)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
 
         if let decodedSlots = try? container.decode([BoardSlot].self, forKey: .slots) {
             slots = decodedSlots
@@ -73,5 +83,6 @@ extension ReferenceBoard: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(layoutCount, forKey: .layoutCount)
         try container.encode(slots, forKey: .slots)
+        try container.encodeIfPresent(name, forKey: .name)
     }
 }

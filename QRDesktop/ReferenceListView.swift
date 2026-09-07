@@ -47,6 +47,12 @@ struct ReferenceListView: View {
     @State private var colorPanelHandler: ColorPanelHandler?
     @State private var quickLookHandler: QuickLookHandler?
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
+    @State private var previewOverlay = PeekOverlayController()
+    @State private var previewedBoardID: UUID?
+
+    private var sortedBoards: [ReferenceBoard] {
+        library.boards.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
@@ -111,6 +117,10 @@ struct ReferenceListView: View {
                 selectedDisplayID = NSScreen.main?.displayID ?? screens.first?.displayID
             }
         }
+        .onDisappear {
+            previewOverlay.hide()
+            previewedBoardID = nil
+        }
     }
 
     // MARK: - Sheets (boards)
@@ -131,12 +141,19 @@ struct ReferenceListView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
             } else {
-                List(library.boards) { board in
+                List(sortedBoards) { board in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text(board.summary)
-                                .fontWeight(isCurrent(board) ? .bold : .regular)
-                                .lineLimit(1)
+                            Button {
+                                previewBoard(board)
+                            } label: {
+                                Text(board.displayName)
+                                    .fontWeight(isCurrent(board) ? .bold : .regular)
+                                    .foregroundStyle(previewedBoardID == board.id ? Color.accentColor : Color.primary)
+                                    .lineLimit(1)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Click to preview on \(targetScreen?.localizedName ?? "screen")")
                             Spacer()
                             Button("Apply") { applyBoard(board) }
                                 .buttonStyle(.borderless)
@@ -145,12 +162,20 @@ struct ReferenceListView: View {
                             }
                             .buttonStyle(.borderless)
                             Button("Delete", role: .destructive) {
+                                if previewedBoardID == board.id {
+                                    previewOverlay.hide()
+                                    previewedBoardID = nil
+                                }
                                 library.deleteBoard(board)
                             }
                             .buttonStyle(.borderless)
                         }
 
                         if expandedBoardID == board.id {
+                            TextField("Sheet name", text: nameBinding(for: board))
+                                .textFieldStyle(.plain)
+                                .font(.caption)
+
                             ForEach(0..<board.layoutCount, id: \.self) { slot in
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Slot \(slot + 1)").font(.caption).bold()
@@ -213,6 +238,33 @@ struct ReferenceListView: View {
                 .frame(minHeight: 120, maxHeight: 200)
             }
         }
+    }
+
+    private func nameBinding(for board: ReferenceBoard) -> Binding<String> {
+        Binding(
+            get: { board.name ?? "" },
+            set: { newValue in library.setBoardName(boardID: board.id, name: newValue) }
+        )
+    }
+
+    /// Floats the sheet on the currently targeted screen without applying it -
+    /// tap again (or tap a different sheet, or close the menu) to dismiss.
+    private func previewBoard(_ board: ReferenceBoard) {
+        guard let targetScreen else { return }
+
+        if previewedBoardID == board.id {
+            previewOverlay.hide()
+            previewedBoardID = nil
+            return
+        }
+
+        guard let url = library.previewImageURL(for: board, screen: targetScreen),
+              let image = NSImage(contentsOf: url) else {
+            statusMessage = "Couldn't preview that sheet - assign at least one image to a slot."
+            return
+        }
+        previewOverlay.show(image: image, on: targetScreen)
+        previewedBoardID = board.id
     }
 
     private func slotPathBinding(board: ReferenceBoard, slot: Int) -> Binding<String> {
