@@ -9,27 +9,36 @@
 /* Begin PBXBuildFile section */
 		2EC4D23150167ADE2517CC18 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9DB985B69C63B455A06CD07 /* LaunchAtLogin.swift */; };
 		47A446B2F4605C63C771E13C /* QRDesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFD59833ABDCCBD549F02C0 /* QRDesktopApp.swift */; };
+		50FEC93AB4143F8E51B8D567 /* PeekHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7A207C794CC63251BCC31F /* PeekHotKey.swift */; };
 		5ABC13032A184E091A9DF994 /* ReferenceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC66595E2992DDDF6F88C793 /* ReferenceListView.swift */; };
 		65E282B49F044D1468C0E463 /* ReferenceBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 288BE6AE7CC5DB74E683F4EE /* ReferenceBoard.swift */; };
+		7E1DA995B0C676B137028ABC /* CGSSpaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C6E54A758457534A5F05D6 /* CGSSpaces.swift */; };
 		89DF3F334D46929AD8CE0A63 /* ReferenceLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548062D6A93484780DDA8EA0 /* ReferenceLibrary.swift */; };
+		CDE053A270A17A4E1988B43A /* PeekOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD914272D0EC3FAB807D3D6 /* PeekOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		288BE6AE7CC5DB74E683F4EE /* ReferenceBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceBoard.swift; sourceTree = "<group>"; };
+		44C6E54A758457534A5F05D6 /* CGSSpaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGSSpaces.swift; sourceTree = "<group>"; };
 		548062D6A93484780DDA8EA0 /* ReferenceLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceLibrary.swift; sourceTree = "<group>"; };
 		9F2467B906C9B87E66EB5050 /* QRDesktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QRDesktop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A9DB985B69C63B455A06CD07 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		AC66595E2992DDDF6F88C793 /* ReferenceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceListView.swift; sourceTree = "<group>"; };
+		BFD914272D0EC3FAB807D3D6 /* PeekOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeekOverlay.swift; sourceTree = "<group>"; };
 		DFFD59833ABDCCBD549F02C0 /* QRDesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRDesktopApp.swift; sourceTree = "<group>"; };
 		EBEF48EEEBB02EC5E0F75088 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		EC7A207C794CC63251BCC31F /* PeekHotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeekHotKey.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		19B364A5B1FFC5326CC1E36A /* QRDesktop */ = {
 			isa = PBXGroup;
 			children = (
+				44C6E54A758457534A5F05D6 /* CGSSpaces.swift */,
 				EBEF48EEEBB02EC5E0F75088 /* Info.plist */,
 				A9DB985B69C63B455A06CD07 /* LaunchAtLogin.swift */,
+				EC7A207C794CC63251BCC31F /* PeekHotKey.swift */,
+				BFD914272D0EC3FAB807D3D6 /* PeekOverlay.swift */,
 				DFFD59833ABDCCBD549F02C0 /* QRDesktopApp.swift */,
 				288BE6AE7CC5DB74E683F4EE /* ReferenceBoard.swift */,
 				548062D6A93484780DDA8EA0 /* ReferenceLibrary.swift */,
@@ -112,7 +121,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7E1DA995B0C676B137028ABC /* CGSSpaces.swift in Sources */,
 				2EC4D23150167ADE2517CC18 /* LaunchAtLogin.swift in Sources */,
+				50FEC93AB4143F8E51B8D567 /* PeekHotKey.swift in Sources */,
+				CDE053A270A17A4E1988B43A /* PeekOverlay.swift in Sources */,
 				47A446B2F4605C63C771E13C /* QRDesktopApp.swift in Sources */,
 				65E282B49F044D1468C0E463 /* ReferenceBoard.swift in Sources */,
 				89DF3F334D46929AD8CE0A63 /* ReferenceLibrary.swift in Sources */,

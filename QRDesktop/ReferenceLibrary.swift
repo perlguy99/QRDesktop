@@ -5,6 +5,7 @@
 
 import AppKit
 import CoreImage
+import CryptoKit
 import Foundation
 import PDFKit
 
@@ -62,8 +63,21 @@ class ReferenceLibrary {
     private(set) var images: [ReferenceImage] = []
     private(set) var boards: [ReferenceBoard] = []
 
-    /// Which board is currently showing on each display, keyed by display ID.
-    private var currentBoardIDByDisplay: [UInt32: String] = [:]
+    /// Which board is currently showing, keyed by display + the current Space
+    /// on that display (falls back to display-only if the Space can't be
+    /// determined), so different virtual desktops on the same monitor can
+    /// each remember their own sheet.
+    private var currentBoardIDByKey: [String: String] = [:]
+
+    private func boardKey(for screen: NSScreen) -> String? {
+        guard let displayID = screen.displayID else { return nil }
+        if let spaceID = screen.currentSpaceID {
+            print("[Spaces] \(screen.localizedName) is currently on space \(spaceID)")
+            return "\(displayID):\(spaceID)"
+        }
+        print("[Spaces] could not determine current space for \(screen.localizedName), falling back to display-only")
+        return "\(displayID)"
+    }
 
     private let defaults = UserDefaults.standard
     private let imagesKey = "QRDesktop.images"
@@ -98,12 +112,7 @@ class ReferenceLibrary {
             boards = decoded
         }
 
-        let savedSelections = defaults.dictionary(forKey: currentBoardsKey) as? [String: String] ?? [:]
-        for (displayIDString, boardIDString) in savedSelections {
-            if let displayID = UInt32(displayIDString) {
-                currentBoardIDByDisplay[displayID] = boardIDString
-            }
-        }
+        currentBoardIDByKey = defaults.dictionary(forKey: currentBoardsKey) as? [String: String] ?? [:]
     }
 
     // MARK: - Image pool
@@ -179,8 +188,7 @@ class ReferenceLibrary {
     }
 
     private func persistCurrentBoards() {
-        let asStrings = Dictionary(uniqueKeysWithValues: currentBoardIDByDisplay.map { (String($0.key), $0.value) })
-        defaults.set(asStrings, forKey: currentBoardsKey)
+        defaults.set(currentBoardIDByKey, forKey: currentBoardsKey)
     }
 
     @discardableResult
@@ -224,23 +232,44 @@ class ReferenceLibrary {
 
     func deleteBoard(_ board: ReferenceBoard) {
         boards.removeAll { $0.id == board.id }
-        currentBoardIDByDisplay = currentBoardIDByDisplay.filter { $0.value != board.id.uuidString }
+        currentBoardIDByKey = currentBoardIDByKey.filter { $0.value != board.id.uuidString }
         persistBoards()
         persistCurrentBoards()
         invalidateRenderCache(for: board.id)
     }
 
     func currentBoard(for screen: NSScreen) -> ReferenceBoard? {
-        guard let displayID = screen.displayID,
-              let idString = currentBoardIDByDisplay[displayID],
+        guard let key = boardKey(for: screen),
+              let idString = currentBoardIDByKey[key],
               let id = UUID(uuidString: idString) else { return nil }
         return boards.first { $0.id == id }
     }
 
+    /// The already-rendered image for whatever sheet is currently showing on
+    /// this screen - used by the peek overlay, which needs the same pixels
+    /// that are already sitting in the desktop picture, just floated on top.
+    func previewImageURL(for screen: NSScreen) -> URL? {
+        guard let board = currentBoard(for: screen) else { return nil }
+        return renderedImageURL(for: board, screen: screen)
+    }
+
+    /// Re-applies whatever board is already recorded as current for each
+    /// connected screen. Self-healing for the render cache being wiped or
+    /// going stale (e.g. after a fix that changes how cache files are named) -
+    /// without this, a saved selection could silently point at a file that no
+    /// longer exists until the user manually reselects it.
+    func reapplyCurrentBoards() {
+        for screen in NSScreen.screens {
+            if let board = currentBoard(for: screen) {
+                selectBoard(board, for: screen)
+            }
+        }
+    }
+
     @discardableResult
     func selectBoard(_ board: ReferenceBoard, for screen: NSScreen) -> Bool {
-        guard let displayID = screen.displayID else { return false }
-        currentBoardIDByDisplay[displayID] = board.id.uuidString
+        guard let key = boardKey(for: screen) else { return false }
+        currentBoardIDByKey[key] = board.id.uuidString
         persistCurrentBoards()
 
         guard let renderedURL = renderedImageURL(for: board, screen: screen) else { return false }
@@ -270,10 +299,18 @@ class ReferenceLibrary {
         // macOS silently ignores setDesktopImageURL if the URL matches what's already
         // set for that screen, even if the file's contents changed - so the cache
         // filename has to change whenever the board's actual content changes, not
-        // just live at a fixed per-board path.
-        var fingerprint = Hasher()
-        fingerprint.combine(board.slots)
-        let contentHash = fingerprint.finalize()
+        // just live at a fixed per-board path. Swift's Hasher is deliberately
+        // randomized per process launch (not stable across relaunches), so it was
+        // silently regenerating and orphaning a "new" cache file every single time
+        // the app started even when nothing about the board had changed - use a
+        // real content hash (SHA256) instead, which is the same on every run.
+        let fingerprint = board.slots
+            .map { "\($0.path ?? "")|\($0.scaleMode.rawValue)|\($0.backgroundColorHex)" }
+            .joined(separator: ";")
+        let contentHash = SHA256.hash(data: Data(fingerprint.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+            .prefix(16)
 
         let cacheURL = renderedBoardsDirectory
             .appendingPathComponent("\(board.id.uuidString)-\(contentHash)-\(Int(pixelSize.width))x\(Int(pixelSize.height))")
