@@ -258,13 +258,21 @@ struct ReferenceListView: View {
             return
         }
 
-        guard let url = library.previewImageURL(for: board, screen: targetScreen),
-              let image = NSImage(contentsOf: url) else {
-            statusMessage = "Couldn't preview that sheet - assign at least one image to a slot."
-            return
-        }
-        previewOverlay.show(image: image, on: targetScreen)
         previewedBoardID = board.id
+        DispatchQueue.global(qos: .userInitiated).async {
+            let url = library.previewImageURL(for: board, screen: targetScreen)
+            let image = url.flatMap { NSImage(contentsOf: $0) }
+            DispatchQueue.main.async {
+                // Bail if the user tapped a different sheet (or dismissed) while this was rendering.
+                guard previewedBoardID == board.id else { return }
+                guard let image else {
+                    statusMessage = "Couldn't preview that sheet - assign at least one image to a slot."
+                    previewedBoardID = nil
+                    return
+                }
+                previewOverlay.show(image: image, on: targetScreen)
+            }
+        }
     }
 
     private func slotPathBinding(board: ReferenceBoard, slot: Int) -> Binding<String> {
@@ -324,10 +332,13 @@ struct ReferenceListView: View {
 
     private func applyBoard(_ board: ReferenceBoard) {
         guard let targetScreen else { return }
-        if library.selectBoard(board, for: targetScreen) {
-            statusMessage = "Set \"\(board.summary)\" on \(targetScreen.localizedName)."
-        } else {
-            statusMessage = "Couldn't apply that sheet - assign at least one image to a slot."
+        statusMessage = "Applying \"\(board.displayName)\"…"
+        library.selectBoard(board, for: targetScreen) { success in
+            if success {
+                statusMessage = "Set \"\(board.displayName)\" on \(targetScreen.localizedName)."
+            } else {
+                statusMessage = "Couldn't apply that sheet - assign at least one image to a slot."
+            }
         }
     }
 

@@ -280,14 +280,29 @@ class ReferenceLibrary {
         }
     }
 
-    @discardableResult
-    func selectBoard(_ board: ReferenceBoard, for screen: NSScreen) -> Bool {
-        guard let key = boardKey(for: screen) else { return false }
+    /// Renders and applies a board on a background queue - compositing (and,
+    /// for PDF slots, rasterizing) at full screen resolution is expensive
+    /// enough to freeze the UI for a noticeable moment if done inline on the
+    /// thread that's handling the button tap or edit. Only the actual desktop
+    /// change hops back to the main thread; `completion` (if given) fires on
+    /// the main thread once that's done.
+    func selectBoard(_ board: ReferenceBoard, for screen: NSScreen, completion: ((Bool) -> Void)? = nil) {
+        guard let key = boardKey(for: screen) else {
+            completion?(false)
+            return
+        }
         currentBoardIDByKey[key] = board.id.uuidString
         persistCurrentBoards()
 
-        guard let renderedURL = renderedImageURL(for: board, screen: screen) else { return false }
-        return applyToDesktop(renderedURL, screen: screen)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self, let renderedURL = self.renderedImageURL(for: board, screen: screen) else {
+                DispatchQueue.main.async { completion?(false) }
+                return
+            }
+            DispatchQueue.main.async {
+                completion?(self.applyToDesktop(renderedURL, screen: screen))
+            }
+        }
     }
 
     func advanceBoard(by delta: Int, for screen: NSScreen) {
