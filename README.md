@@ -48,4 +48,4 @@ Build and run the `QRDesktop` scheme. Re-run `xcodegen generate` any time you ad
 
 ## License
 
-No license file is currently included, which means default copyright applies (all rights reserved) even though the repo is public. Open an issue if you'd like to use this and want a license added.
+MIT — see [LICENSE](LICENSE). Use it, fork it, ship it, whatever you want.
