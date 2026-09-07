@@ -15,39 +15,44 @@ final class PeekOverlayController {
     func show(library: ReferenceLibrary) {
         hide()
 
-        for screen in NSScreen.screens {
-            guard let url = library.previewImageURL(for: screen) else {
-                print("[Peek] no board/preview for screen \(screen.localizedName)")
-                continue
-            }
-            guard let image = NSImage(contentsOf: url) else {
-                print("[Peek] found URL but couldn't load image: \(url.path)")
-                continue
-            }
-            print("[Peek] showing \(url.lastPathComponent) on \(screen.localizedName)")
-
-            let window = NSWindow(
-                contentRect: screen.frame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false,
-                screen: screen
-            )
-            window.level = .screenSaver
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            window.hasShadow = false
-            window.ignoresMouseEvents = true
-            window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-
-            let imageView = NSImageView(frame: NSRect(origin: .zero, size: screen.frame.size))
-            imageView.image = image
-            imageView.imageScaling = .scaleAxesIndependently
-            window.contentView = imageView
-
-            window.orderFrontRegardless()
-            windows.append(window)
+        let mouseLocation = NSEvent.mouseLocation
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main else {
+            print("[Peek] couldn't determine which screen the mouse is on")
+            return
         }
+
+        guard let url = library.previewImageURL(for: screen) else {
+            print("[Peek] no board/preview for screen \(screen.localizedName)")
+            return
+        }
+        guard let image = NSImage(contentsOf: url) else {
+            print("[Peek] found URL but couldn't load image: \(url.path)")
+            return
+        }
+        print("[Peek] showing \(url.lastPathComponent) on \(screen.localizedName)")
+
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: screen.frame.size),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false,
+            screen: screen
+        )
+        window.setFrame(screen.frame, display: false)
+        window.level = .screenSaver
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+
+        let imageView = NSImageView(frame: NSRect(origin: .zero, size: screen.frame.size))
+        imageView.image = image
+        imageView.imageScaling = .scaleAxesIndependently
+        window.contentView = imageView
+
+        window.orderFrontRegardless()
+        windows.append(window)
     }
 
     func hide() {
